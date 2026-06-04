@@ -827,35 +827,34 @@ function openImport(){
     btn.className = 'chip-btn' + (isJpn?' japan':'') + (name===curSource?' active':'');
     btn.textContent = name;
     btn.setAttribute('data-cust', name);
-    btn.type = 'button'; // prevent form submit
+    btn.type = 'button';
+    (function(btnRef, custName){
+      btnRef.onclick = function(e){
+        e.stopPropagation();
+        curCustomName=''; curSource=custName;
+        chipRow.querySelectorAll('.chip-btn').forEach(function(b){b.classList.remove('active');});
+        btnRef.classList.add('active');
+        renderItemSuggestions(custName);
+      };
+    })(btn, name);
     chipRow.appendChild(btn);
   });
-  // Single delegated listener on chipRow
-  chipRow.onclick = function(e){
-    const btn = e.target.closest('[data-cust]');
-    if(!btn) return;
-    const name = btn.getAttribute('data-cust');
-    if(name==='__CUSTOM__'){
-      const cname = prompt('Enter customer / order name:');
-      if(!cname||!cname.trim()) return;
-      curCustomName=cname.trim();
-      curSource='__CUSTOM__';
-      chipRow.querySelectorAll('.chip-btn').forEach(function(b){b.classList.remove('active');});
-      btn.classList.add('active');
-      renderItemSuggestions('');
-      return;
-    }
-    curCustomName=''; curSource=name;
-    chipRow.querySelectorAll('.chip-btn').forEach(function(b){b.classList.remove('active');});
-    btn.classList.add('active');
-    renderItemSuggestions(name);
-  };
   // + Custom button
   const customBtn = document.createElement('button');
   customBtn.className = 'chip-btn custom-chip' + (curSource==='__CUSTOM__'?' active':'');
   customBtn.textContent = '+ Custom';
   customBtn.type = 'button';
   customBtn.setAttribute('data-cust','__CUSTOM__');
+  customBtn.onclick = function(e){
+    e.stopPropagation();
+    const cname = prompt('Enter customer / order name:');
+    if(!cname||!cname.trim()) return;
+    curCustomName=cname.trim();
+    curSource='__CUSTOM__';
+    chipRow.querySelectorAll('.chip-btn').forEach(function(b){b.classList.remove('active');});
+    customBtn.classList.add('active');
+    renderItemSuggestions('');
+  };
   chipRow.appendChild(customBtn);
 
   manualItems=[];
