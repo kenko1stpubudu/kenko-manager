@@ -234,6 +234,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .jp-bal-label{font-size:10px;color:var(--text3);}
 .side-order.dispatched{opacity:.6;}
 .side-order.dispatched .so-name{text-decoration:line-through;color:var(--text3);}
+.rchip{padding:6px 14px;border-radius:20px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:12px;cursor:pointer;font-family:inherit;}
+.rchip.active{background:#4caf7d;border-color:#4caf7d;color:#fff;}
 /* timestamp popup */
 .ts-wrap{position:relative;cursor:pointer;}
 .ts-pop{display:none;position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);
@@ -248,6 +250,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .ts-wrap:hover .ts-pop{display:block;}
 .tr-name{font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -257,6 +260,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
   <div id="last-sync"><div class="sync-dot"></div><span id="sync-label">Connecting...</span></div>
   <button class="top-btn primary" onclick="openImport()">📋 Add Order</button>
   <button class="top-btn" onclick="render()">↺ Refresh</button>
+  <button class="top-btn" id="report-btn" onclick="openReport()" style="color:#4caf7d;border-color:#4caf7d;">📊 Report</button>
   <button class="top-btn" id="clear-btn" onclick="clearAllData()" style="color:var(--red);border-color:var(--red);">🗑 Clear All</button>
 </div>
 
@@ -792,7 +796,7 @@ function renderActivity(){
 
 /* ── ADD ORDER ── */
 let manualItems=[];
-let curSource='SPAR';
+let curSource=Object.keys(CUSTOMER_ITEMS)[0]||'Kandy';
 
 const CUSTOMER_ITEMS = {
   "Kandy": ["Almond Pack 100G", "Apricot 85G", "Basil Seed 100G", "Black Raisins 100G", "Blueberry 85G", "Brain Booster 100G", "Ceylon Cashew Burnt 75G", "Ceylon Cashew Devilled 75G", "Ceylon Cashew Roasted 75G", "Chia Seeds Pack 100G", "Chocolate With Three Nuts 100G", "Cranberries 100G", "Dried Plums 100G", "Flax Seed Pack 100G", "Forest Bee Honey 460G", "Hazal Nut 85G", "Khalas Dates 200G", "Natural High Protein Mix 100G", "Nut & Fruits Mix 100G", "Organic Roasted Peanuts 200G", "Pistachio 85G", "Pumpkin Seeds Pack 100G", "Roasted Seed And Nuts Snack 100G", "Sunflower Seed Pack 100G", "Walnut 85G"],
@@ -831,6 +835,16 @@ function openImport(){
     const btn = e.target.closest('[data-cust]');
     if(!btn) return;
     const name = btn.getAttribute('data-cust');
+    if(name==='__CUSTOM__'){
+      const cname = prompt('Enter customer / order name:');
+      if(!cname||!cname.trim()) return;
+      curCustomName=cname.trim();
+      curSource='__CUSTOM__';
+      chipRow.querySelectorAll('.chip-btn').forEach(function(b){b.classList.remove('active');});
+      btn.classList.add('active');
+      renderItemSuggestions('');
+      return;
+    }
     curCustomName=''; curSource=name;
     chipRow.querySelectorAll('.chip-btn').forEach(function(b){b.classList.remove('active');});
     btn.classList.add('active');
@@ -840,22 +854,9 @@ function openImport(){
   const customBtn = document.createElement('button');
   customBtn.className = 'chip-btn custom-chip' + (curSource==='__CUSTOM__'?' active':'');
   customBtn.textContent = '+ Custom';
-  customBtn.onclick = function(){
-    const name = prompt('Enter customer / order name:');
-    if(!name||!name.trim()) return;
-    curCustomName = name.trim();
-    curSource = '__CUSTOM__';
-    document.querySelectorAll('#source-chips .chip-btn').forEach(function(b){b.classList.remove('active');});
-    customBtn.classList.add('active');
-    renderItemSuggestions('');
-  };
+  customBtn.type = 'button';
+  customBtn.setAttribute('data-cust','__CUSTOM__');
   chipRow.appendChild(customBtn);
-  if(curSource==='__CUSTOM__'&&curCustomName){
-    const lbl=document.createElement('span');
-    lbl.style.cssText='font-size:12px;color:#4caf7d;padding:3px 8px;border-radius:8px;border:1px solid #4caf7d;margin-left:4px;';
-    lbl.textContent='📝 '+curCustomName;
-    chipRow.appendChild(lbl);
-  }
 
   manualItems=[];
   document.getElementById('po-input').value=Date.now().toString().slice(-6);
@@ -1003,6 +1004,223 @@ if('serviceWorker' in navigator){
     .then(function(){console.log('Manager SW registered');})
     .catch(function(e){console.log('SW error',e);});
 }
+
+
+/* ══ REPORT SYSTEM ══ */
+let repType = 'all';
+
+function openReport(){
+  document.getElementById('report-overlay').style.display='flex';
+  // Set default date range - last 30 days
+  const today = new Date();
+  const from = new Date(today); from.setDate(from.getDate()-30);
+  document.getElementById('rep-to').value = today.toISOString().slice(0,10);
+  document.getElementById('rep-from').value = from.toISOString().slice(0,10);
+}
+window.openReport=openReport;
+
+function closeReport(){
+  document.getElementById('report-overlay').style.display='none';
+}
+window.closeReport=closeReport;
+
+function selectRtype(btn){
+  repType=btn.getAttribute('data-type');
+  document.querySelectorAll('.rchip').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+}
+window.selectRtype=selectRtype;
+
+function parseTsDate(tsStr){
+  if(!tsStr) return null;
+  try{
+    const months={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+    const parts=tsStr.trim().split(' ');
+    if(parts.length<3) return null;
+    const day=parseInt(parts[0]);
+    const mon=months[parts[1]];
+    const time=parts[2].split(':');
+    if(mon===undefined||isNaN(day)) return null;
+    const yr=new Date().getFullYear();
+    return new Date(yr,mon,day,parseInt(time[0]||0),parseInt(time[1]||0));
+  }catch(e){return null;}
+}
+
+function downloadReport(){
+  const fromVal=document.getElementById('rep-from').value;
+  const toVal=document.getElementById('rep-to').value;
+  const fromDate=fromVal?new Date(fromVal):null;
+  const toDate=toVal?new Date(toVal+' 23:59:59'):null;
+
+  // Collect all order data
+  const rows=[];
+  const headers=['Order ID','Customer','Item Name','Total Qty (pcs)','Weight',
+    'Raw Done','Bag Done','Pack Open Done','Fill Done','Seal Done','Box Done',
+    'Raw By','Raw Time','Bag By','Bag Time',
+    'Fill By','Fill Time','Seal By','Seal Time',
+    'Box By','Box Time','Dispatch By','Dispatch Time',
+    'Duration','Status'];
+  rows.push(headers);
+
+  function processOrders(orderData, isDisp){
+    Object.keys(orderData).forEach(function(oid){
+      let items, dispMeta=null;
+      if(isDisp){
+        items=orderData[oid].items||[];
+        dispMeta=orderData[oid].meta||{};
+      } else {
+        items=orderData[oid]||[];
+      }
+      const customer=oid.split('-')[0]||oid;
+
+      items.forEach(function(it){
+        // Filter by date range using raw timestamp
+        const rawTime=it.ts&&it.ts.raw?it.ts.raw.time:null;
+        if(rawTime&&fromDate){
+          const d=parseTsDate(rawTime);
+          if(d&&d<fromDate) return;
+        }
+        if(rawTime&&toDate){
+          const d=parseTsDate(rawTime);
+          if(d&&d>toDate) return;
+        }
+
+        const totalPcs=it.qty*it.cs;
+        const grams=parseFloat((it.name.match(/(\d+(?:\.\d+)?)\s*(g|kg)/i)||[])[1]||0);
+        const isKg=(it.name.match(/kg/i));
+        const weightG=isKg?grams*1000:grams;
+        const totalWeight=weightG>0?(totalPcs*weightG>=1000?(totalPcs*weightG/1000).toFixed(2)+'kg':(totalPcs*weightG)+'g'):'—';
+
+        // Duration calc
+        const startTs=it.ts&&it.ts.raw?it.ts.raw.time:null;
+        const endTs=it.ts&&(it.ts.ok||it.ts.box)?(it.ts.ok||it.ts.box).time:null;
+        let dur='—';
+        if(startTs&&endTs){
+          const s=parseTsDate(startTs), e=parseTsDate(endTs);
+          if(s&&e){
+            const mins=Math.round((e-s)/60000);
+            if(mins<60) dur=mins+'m';
+            else if(mins<1440) dur=(mins/60).toFixed(1)+'h';
+            else dur=Math.floor(mins/1440)+'d '+(Math.round((mins%1440)/60))+'h';
+          }
+        }
+
+        const status=isDisp?'Dispatched':
+          (it.s3done||(it.boxDone||0)>=totalPcs)?'Box Complete':
+          (it.s2done||(it.fillDone||0)>=totalPcs)?'Fill Complete':
+          (it.packopen)?'Pack Open':
+          (it.raw&&it.bag)?'Prep Done':'In Progress';
+
+        rows.push([
+          oid, customer,
+          it.name, totalPcs, totalWeight,
+          it.isJapan?(it.rawDone||0):(it.raw?totalPcs:0),
+          it.isJapan?(it.bagDone||0):(it.bag?totalPcs:0),
+          it.isJapan?(it.packopenDone||0):(it.packopen?totalPcs:0),
+          it.isJapan?(it.fillDone||0):(it.fill?totalPcs:0),
+          it.isJapan?(it.weighDone||0):(it.weigh?totalPcs:0),
+          it.isJapan?(it.boxDone||0):(it.box?totalPcs:0),
+          it.ts&&it.ts.raw?it.ts.raw.user:'',
+          it.ts&&it.ts.raw?it.ts.raw.time:'',
+          it.ts&&it.ts.bag?it.ts.bag.user:'',
+          it.ts&&it.ts.bag?it.ts.bag.time:'',
+          it.ts&&it.ts.fill?it.ts.fill.user:'',
+          it.ts&&it.ts.fill?it.ts.fill.time:'',
+          it.ts&&it.ts.weigh?it.ts.weigh.user:'',
+          it.ts&&it.ts.weigh?it.ts.weigh.time:'',
+          it.ts&&it.ts.box?it.ts.box.user:'',
+          it.ts&&it.ts.box?it.ts.box.time:'',
+          dispMeta?dispMeta.dispatchedBy:'',
+          dispMeta?dispMeta.dispatchedAt:'',
+          dur, status
+        ]);
+      });
+    });
+  }
+
+  if(repType==='all'||repType==='active') processOrders(data, false);
+  if(repType==='all'||repType==='dispatched') processOrders(dispatched, true);
+
+  if(rows.length<=1){
+    alert('No data found for selected filters.');
+    return;
+  }
+
+  // Create Excel workbook
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  // Auto column widths
+  const colWidths=headers.map(function(h,i){
+    const maxLen=rows.reduce(function(max,row){
+      return Math.max(max, String(row[i]||'').length);
+    },h.length);
+    return {wch:Math.min(maxLen+2,30)};
+  });
+  ws['!cols']=colWidths;
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Production Report');
+
+  // Summary sheet
+  const summaryRows=[
+    ['Kenko Production Report'],
+    ['Generated:', new Date().toLocaleString()],
+    ['Date Range:', (fromVal||'All')+' to '+(toVal||'All')],
+    ['Type:', repType],
+    ['Total Rows:', rows.length-1],
+    [],
+    ['Order ID','Customer','Items','Status','Dispatch By','Dispatch Time']
+  ];
+  // Group by order
+  const orderSummary={};
+  rows.slice(1).forEach(function(r){
+    if(!orderSummary[r[0]]){
+      orderSummary[r[0]]={customer:r[1],items:0,status:r[23],dispBy:r[21],dispTime:r[22]};
+    }
+    orderSummary[r[0]].items++;
+  });
+  Object.keys(orderSummary).forEach(function(oid){
+    const o=orderSummary[oid];
+    summaryRows.push([oid,o.customer,o.items,o.status,o.dispBy,o.dispTime]);
+  });
+  const ws2=XLSX.utils.aoa_to_sheet(summaryRows);
+  XLSX.utils.book_append_sheet(wb,ws2,'Summary');
+
+  // Download
+  const fname='kenko-report-'+(fromVal||'all')+'-to-'+(toVal||'all')+'.xlsx';
+  XLSX.writeFile(wb,fname);
+  closeReport();
+}
+window.downloadReport=downloadReport;
+
 </script>
+<!-- REPORT MODAL -->
+<div id="report-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:600;display:none;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:10px;width:100%;max-width:460px;padding:0;">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:15px;font-weight:700;">📊 Download Report</span>
+      <button onclick="closeReport()" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Report Type</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;" id="report-type-chips">
+          <button class="rchip active" data-type="all" onclick="selectRtype(this)">All Orders</button>
+          <button class="rchip" data-type="active" onclick="selectRtype(this)">Active Only</button>
+          <button class="rchip" data-type="dispatched" onclick="selectRtype(this)">Dispatched Only</button>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Date Range (optional)</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="date" id="rep-from" style="flex:1;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:inherit;font-size:13px;">
+          <span style="color:var(--text3);">to</span>
+          <input type="date" id="rep-to" style="flex:1;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:inherit;font-size:13px;">
+        </div>
+      </div>
+      <button onclick="downloadReport()" style="padding:13px;background:#4caf7d;color:#fff;border:none;border-radius:7px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">⬇ Download Excel</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
