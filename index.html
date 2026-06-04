@@ -153,8 +153,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .empty-state{padding:50px 40px;text-align:center;color:var(--text2);font-size:16px;letter-spacing:.2px;}
 
 /* IMPORT OVERLAY */
-#import-overlay{position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;background:rgba(0,0,0,.78);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}
-
+#import-overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;}
+#import-overlay.open{display:flex;}
 #import-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);width:100%;max-width:540px;max-height:90vh;overflow-y:auto;}
 .imp-hd{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .imp-title{font-size:15px;font-weight:700;}
@@ -796,7 +796,6 @@ function renderActivity(){
 
 /* ── ADD ORDER ── */
 let manualItems=[];
-let curSource=Object.keys(CUSTOMER_ITEMS)[0]||'Kandy';
 
 const CUSTOMER_ITEMS = {
   "Kandy": ["Almond Pack 100G", "Apricot 85G", "Basil Seed 100G", "Black Raisins 100G", "Blueberry 85G", "Brain Booster 100G", "Ceylon Cashew Burnt 75G", "Ceylon Cashew Devilled 75G", "Ceylon Cashew Roasted 75G", "Chia Seeds Pack 100G", "Chocolate With Three Nuts 100G", "Cranberries 100G", "Dried Plums 100G", "Flax Seed Pack 100G", "Forest Bee Honey 460G", "Hazal Nut 85G", "Khalas Dates 200G", "Natural High Protein Mix 100G", "Nut & Fruits Mix 100G", "Organic Roasted Peanuts 200G", "Pistachio 85G", "Pumpkin Seeds Pack 100G", "Roasted Seed And Nuts Snack 100G", "Sunflower Seed Pack 100G", "Walnut 85G"],
@@ -813,12 +812,10 @@ const CUSTOMER_ITEMS = {
   "WTC": ["Mixed Fruit Nut 1Kg"],
   "Park Street": ["Pumpkin Seeds 100G", "Protein Mix 100G", "Brain Booster 100G", "Chia Seeds 100G", "Prunes 75G", "Almonds 100G", "Cranberry 100G", "Apricot 85G", "Sago 200G", "Komas Dates 500G", "Quinoa 200G", "Barley 200G"],
 };
+let curSource=Object.keys(CUSTOMER_ITEMS)[0]||'Kandy';
 const JAPAN_CUSTOMER = "Japan Order";
 
 function openImport(){
-  const overlay = document.getElementById('import-overlay');
-  if(!overlay) { console.error('import-overlay not found'); return; }
-  overlay.style.display='flex';
   // Build customer chips dynamically from Excel data
   const chipRow = document.getElementById('source-chips');
   chipRow.innerHTML='';
@@ -870,12 +867,12 @@ function openImport(){
   document.getElementById('status-msg').className='status-msg';
   renderItemsList();
   renderItemSuggestions(curSource);
-  document.getElementById('import-overlay').style.display='flex';
+  document.getElementById('import-overlay').classList.add('open');
   setTimeout(function(){document.getElementById('po-input').focus();},100);
 }
 window.openImport=openImport;
 
-function closeImport(){document.getElementById('import-overlay').style.display='none';}
+function closeImport(){document.getElementById('import-overlay').classList.remove('open');}
 window.closeImport=closeImport;
 
 function selectSource(btn,src){
@@ -1197,7 +1194,7 @@ window.downloadReport=downloadReport;
 
 </script>
 <!-- REPORT MODAL -->
-<div id="report-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;background:rgba(0,0,0,.78);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;">
+<div id="report-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:600;display:none;align-items:center;justify-content:center;padding:20px;">
   <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:10px;width:100%;max-width:460px;padding:0;">
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
       <span style="font-size:15px;font-weight:700;">📊 Download Report</span>
