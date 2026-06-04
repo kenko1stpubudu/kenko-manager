@@ -153,8 +153,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .empty-state{padding:50px 40px;text-align:center;color:var(--text2);font-size:16px;letter-spacing:.2px;}
 
 /* IMPORT OVERLAY */
-#import-overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;}
-#import-overlay.open{display:flex;}
+#import-overlay{position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;background:rgba(0,0,0,.78);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}
+
 #import-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);width:100%;max-width:540px;max-height:90vh;overflow-y:auto;}
 .imp-hd{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .imp-title{font-size:15px;font-weight:700;}
@@ -816,6 +816,9 @@ const CUSTOMER_ITEMS = {
 const JAPAN_CUSTOMER = "Japan Order";
 
 function openImport(){
+  const overlay = document.getElementById('import-overlay');
+  if(!overlay) { console.error('import-overlay not found'); return; }
+  overlay.style.display='flex';
   // Build customer chips dynamically from Excel data
   const chipRow = document.getElementById('source-chips');
   chipRow.innerHTML='';
@@ -867,12 +870,12 @@ function openImport(){
   document.getElementById('status-msg').className='status-msg';
   renderItemsList();
   renderItemSuggestions(curSource);
-  document.getElementById('import-overlay').classList.add('open');
+  document.getElementById('import-overlay').style.display='flex';
   setTimeout(function(){document.getElementById('po-input').focus();},100);
 }
 window.openImport=openImport;
 
-function closeImport(){document.getElementById('import-overlay').classList.remove('open');}
+function closeImport(){document.getElementById('import-overlay').style.display='none';}
 window.closeImport=closeImport;
 
 function selectSource(btn,src){
@@ -1194,7 +1197,7 @@ window.downloadReport=downloadReport;
 
 </script>
 <!-- REPORT MODAL -->
-<div id="report-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:600;display:none;align-items:center;justify-content:center;padding:20px;">
+<div id="report-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;background:rgba(0,0,0,.78);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;">
   <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:10px;width:100%;max-width:460px;padding:0;">
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
       <span style="font-size:15px;font-weight:700;">📊 Download Report</span>
