@@ -822,17 +822,20 @@ function openImport(){
     const btn = document.createElement('button');
     btn.className = 'chip-btn' + (isJpn?' japan':'') + (name===curSource?' active':'');
     btn.textContent = name;
-    btn.setAttribute('data-customer', name);
-    btn.onclick = function(){
-      curCustomName='';
-      curSource=name;
-      document.querySelectorAll('#source-chips .chip-btn').forEach(function(b){b.classList.remove('active');});
-      btn.classList.add('active');
-      updateHint();
-      renderItemSuggestions(name);
-    };
+    btn.setAttribute('data-cust', name);
+    btn.type = 'button'; // prevent form submit
     chipRow.appendChild(btn);
   });
+  // Single delegated listener on chipRow
+  chipRow.onclick = function(e){
+    const btn = e.target.closest('[data-cust]');
+    if(!btn) return;
+    const name = btn.getAttribute('data-cust');
+    curCustomName=''; curSource=name;
+    chipRow.querySelectorAll('.chip-btn').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');
+    renderItemSuggestions(name);
+  };
   // + Custom button
   const customBtn = document.createElement('button');
   customBtn.className = 'chip-btn custom-chip' + (curSource==='__CUSTOM__'?' active':'');
